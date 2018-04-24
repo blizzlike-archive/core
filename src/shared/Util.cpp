@@ -22,8 +22,12 @@
 #include "Util.h"
 #include "Timer.h"
 
+#ifdef WIN32
 #include "utf8cpp/utf8.h"
-#include "mersennetwister/MersenneTwister.h"
+#else
+#include <utf8.h>
+#endif
+#include "MersenneTwister.h"
 
 #include <ace/TSS_T.h>
 #include <ace/OS_NS_arpa_inet.h>

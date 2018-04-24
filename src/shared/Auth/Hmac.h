@@ -40,7 +40,7 @@ class HmacHash
         uint8* GetDigest() { return m_digest; };
         int GetLength() { return SHA_DIGEST_LENGTH; };
     private:
-        HMAC_CTX m_ctx;
+        HMAC_CTX *m_ctx;
         uint8 m_digest[SHA_DIGEST_LENGTH];
 };
 #endif

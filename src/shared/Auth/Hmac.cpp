@@ -18,16 +18,27 @@
 
 #include "Auth/Hmac.h"
 #include "BigNumber.h"
+#include <openssl/opensslv.h>
 
 HmacHash::HmacHash(const uint8* data, int length)
 {
-    HMAC_CTX_init(&m_ctx);
-    HMAC_Init_ex(&m_ctx, data, length, EVP_sha1(), NULL);
+    #if OPENSSL_VERSION_NUMBER < 0x10100000L
+      m_ctx = (HMAC_CTX *) malloc(sizeof(HMAC_CTX));
+      HMAC_CTX_init(m_ctx);
+    #else
+      m_ctx = HMAC_CTX_new();
+    #endif
+    HMAC_Init_ex(m_ctx, data, length, EVP_sha1(), NULL);
 }
 
 HmacHash::~HmacHash()
 {
-    HMAC_CTX_cleanup(&m_ctx);
+    #if OPENSSL_VERSION_NUMBER < 0x10100000L
+      HMAC_CTX_cleanup(m_ctx);
+      free(m_ctx);
+    #else
+      HMAC_CTX_free(m_ctx);
+    #endif
 }
 
 void HmacHash::UpdateBigNumber(BigNumber* bn)
@@ -37,17 +48,17 @@ void HmacHash::UpdateBigNumber(BigNumber* bn)
 
 void HmacHash::UpdateData(const std::vector<uint8>& data)
 {
-    HMAC_Update(&m_ctx, data.data(), data.size());
+    HMAC_Update(m_ctx, data.data(), data.size());
 }
 
 void HmacHash::UpdateData(const uint8* data, int length)
 {
-    HMAC_Update(&m_ctx, data, length);
+    HMAC_Update(m_ctx, data, length);
 }
 
 void HmacHash::Finalize()
 {
     uint32 length = 0;
-    HMAC_Final(&m_ctx, m_digest, &length);
+    HMAC_Final(m_ctx, m_digest, &length);
     // MANGOS_ASSERT(length == SHA_DIGEST_LENGTH);
 }
