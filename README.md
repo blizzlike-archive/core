@@ -1,15 +1,74 @@
-[![Build Status](https://travis-ci.org/lh-server/core.svg?branch=development)](https://travis-ci.org/lh-server/core)
+[![Build Status](https://travis-ci.org/blizzlike-org/core.svg?branch=master)](https://travis-ci.org/blizzlike-org/core)
 
-# Bug reporting:
-Before opening any bug reports on the issue tracker, please read the guidelines [located here](https://github.com/LightsHope/server/blob/development/docs/).
+## build instructions
 
-# Development process overview:
-Any development work should be done in local feature branches rather than on the main branches used for QA/live builds. For example, if you were working on a boss script, rather than committing directly to the development branch, you should first create a new branch with a descriptive name.
+### dependencies
 
-When you have finished working on your fix or feature, you should open a pull request to allow for your code to be automatically compiled by the continuous integration system and reviewed by other developers. After receiving feedback and making any requested changes, your pull request will be squashed and merged to the development branch. Squashing your commits is to ensure that the development branch can be compiled at any point in its history as well as ensuring a clean history.
+#### debian (stretch)
 
-The development branch is used as the basis for the QA and PTR realms. To ensure the QA team receives ample opportunity to test each set of changes, the development branch will only accept pull requests for one week before being frozen for a week, during which time only essential fixes will be accepted.
+    apt-get install vim git \
+      build-essential gcc g++ automake \
+      autoconf make patch \
+      libace-dev libmysql++-dev libtool \
+      libssl-dev grep binutils zlibc \
+      libc6 libbz2-dev cmake libboost-dev libboost-system-dev \
+      libboost-program-options-dev libboost-thread-dev libboost-regex-dev \
+      libtbb-dev libcurl4-openssl-dev libutfcpp-dev 
 
-Once the development branch has been tested by QA, it will be merged with the stable branch to become the next revision for the live realms. The only changes accepted to the stable branch, outside of the merge window, will be critical hotfixes to resolve game-breaking and stability issues.
+#### ubuntu (trusty)
 
-As with any open source project, the workflow is subject to change as we receive feedback and discover what works best for the project and its contributors.
+    apt-get install vim git software-properties-common \
+      build-essential gcc g++ automake \
+      autoconf make patch \
+      libace-dev libmysql++-dev libtool \
+      libssl-dev grep binutils zlibc \
+      libc6 libbz2-dev cmake3 libboost-dev libboost-system-dev \
+      libboost-program-options-dev libboost-thread-dev libboost-regex-dev \
+      libtbb-dev libssl-dev libcurl4-openssl-dev libutfcpp-dev
+
+    add-apt-repository ppa:ubuntu-toolchain-r/test
+    apt-get update
+    apt-get install g++-6
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 90
+
+### compile
+
+    mkdir build run
+    cd build
+
+    # for ubuntu trusty append the following additional arguments
+    # -DCMAKE_CXX_COMPILER=g++-6
+    # -DCMAKE_C_COMPILER=gcc-6
+    cmake .. \
+      -DUSE_ANTICHEAT=0 \
+      -DCMAKE_INSTALL_PREFIX=./run \
+      -DUSE_EXTRACTORS=1 \
+      -DUSE_LIBCURL=1 \
+      -DDEBUG=0
+
+    make -j${X} # ${X} is the amount of cpus/threads
+    make install
+
+### database
+
+    > mysql -h <mysql-host> -u root -p
+    Enter password: 
+
+    MariaDB [(none)]> CREATE USER 'core'@'%';
+    MariaDB [(none)]> CREATE DATABASE core_characters;
+    MariaDB [(none)]> CREATE DATABASE core_logon;
+    MariaDB [(none)]> CREATE DATABASE core_logs;
+    MariaDB [(none)]> CREATE DATABASE core_world;
+    MariaDB [(none)]> GRANT ALL PRIVILEGES ON `core\_%` . * TO 'core'@'%';
+    MariaDB [(none)]> ALTER USER 'core'@'%' IDENTIFIED BY '<your-password>';
+    MariaDB [(none)]> FLUSH PRIVILEGES;
+    MariaDB [(none)]> \q
+
+    mysql -h <mysql-host> -u core -p core_characters < core/sql/characters.sql
+    mysql -h <mysql-host> -u core -p core_logon < core/sql/logon.sql
+    mysql -h <mysql-host> -u core -p core_logs < core/sql/logs.sql
+
+    mysql -h <mysql-host> -u core -p core_world < database/sql/world_full.sql
+    cd ./core/sql/migrations
+    ./merge.sh
+    mysql -h <mysql-host> -u core -p core_world < world_db_updates.sql
