@@ -49,20 +49,38 @@
     make -j${X} # ${X} is the amount of cpus/threads
     make install
 
+#### generate documentation
+
+    apt-get install doxygen
+    doxygen ./doc/doxygen.conf
+
+man-pages as well as html-doc files will be generated in `./docs/generated`.
+
+### extract gameclient files
+
+    mkdir vmaps mmaps
+    ./mapextractor
+    ./vmapextractor
+    ./vmap_assembler Buildings vmaps
+    ./MoveMapGen
+
+    tar cJf resources.tar.xz dbc maps mmaps vmaps
+
 ### database
 
-    > mysql -h <mysql-host> -u root -p
-    Enter password: 
+#### initialize database
 
-    MariaDB [(none)]> CREATE USER 'core'@'%';
-    MariaDB [(none)]> CREATE DATABASE core_characters;
-    MariaDB [(none)]> CREATE DATABASE core_logon;
-    MariaDB [(none)]> CREATE DATABASE core_logs;
-    MariaDB [(none)]> CREATE DATABASE core_world;
-    MariaDB [(none)]> GRANT ALL PRIVILEGES ON `core\_%` . * TO 'core'@'%';
-    MariaDB [(none)]> ALTER USER 'core'@'%' IDENTIFIED BY '<your-password>';
-    MariaDB [(none)]> FLUSH PRIVILEGES;
-    MariaDB [(none)]> \q
+    > mysql -h <mysql-host> -u root -p
+    Enter password:
+
+    CREATE USER 'core'@'%';
+    CREATE DATABASE core_characters;
+    CREATE DATABASE core_logon;
+    CREATE DATABASE core_logs;
+    CREATE DATABASE core_world;
+    GRANT ALL PRIVILEGES ON `core\_%` . * TO 'core'@'%';
+    ALTER USER 'core'@'%' IDENTIFIED BY '<your-password>';
+    FLUSH PRIVILEGES;
 
     mysql -h <mysql-host> -u core -p core_characters < core/sql/characters.sql
     mysql -h <mysql-host> -u core -p core_logon < core/sql/logon.sql
@@ -72,3 +90,18 @@
     cd ./core/sql/migrations
     ./merge.sh
     mysql -h <mysql-host> -u core -p core_world < world_db_updates.sql
+
+#### setup realmlist and first account
+
+    > mysql -h <mysql-host> -u root -p
+    Enter password:
+
+    use core_logon;
+    INSERT INTO realmlist
+      (name, address, localAddress, localSubnetMask, port)
+      VALUES ('realmname', 'realmip', 'realmip', 'realmsubnetmask', realmport);
+
+    INSERT INTO account
+      (username, sha_pass_hash, gmlevel, reg_mail, email, joindate)
+      VALUES ('username', SHA1(CONCAT(UPPER('username'), ':', UPPER('password'))),
+        4, '', 'your@email.org', ???)
