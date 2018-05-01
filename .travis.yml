@@ -74,6 +74,12 @@ jobs:
             - master
       after_success:
         - aws --endpoint-url=${SCALITY_ENDPOINT} s3 rm --recursive s3://travis/core/${TRAVIS_BUILD_NUMBER}
+        - |
+          curl -s \
+            -H "Authorization: token ${TRAVIS_TOKEN}" \
+            -H "Travis-API-Version: 3" \
+            -d '{"request":{"branch":"master"}}' \
+            https://api.travis-ci.org/repo/blizzlike-org%2Fdocker-images/requests
       
 after_success:
   - aws --endpoint-url=${SCALITY_ENDPOINT} s3 sync /tmp/release s3://travis/core/${TRAVIS_BUILD_NUMBER}
