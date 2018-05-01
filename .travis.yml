@@ -49,7 +49,7 @@ jobs:
       if: env(TRAVIS_TAG) != true
       script:
         - |
-          if [ -z "${TRAVIS_TAG}" ]; then
+          if [ -z "${TRAVIS_TAG}" ] && [ "${TRAVIS_BRANCH}" = "master" ] && [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
             export GH_TAG_ID=$( \
               curl -s -H "Authorization: token ${GH_OAUTH_TOKEN}" \
                 https://api.github.com/repos/blizzlike-org/core/releases/tags/latest | jq '.id')
