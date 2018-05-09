@@ -1,91 +1,51 @@
-language: cpp
+language: generic
 sudo: required
 
 services:
   - docker
 
-before_install:
-  - sudo apt-get install -y jq
-  - pip install --user awscli
-  - install -d -m 0777 /tmp/release
-  - install -d -m 0700 ~/.aws
+before_script:
   - chmod -R o+w .
-  - echo "[default]" > ~/.aws/credentials
-  - echo "aws_access_key_id = ${SCALITY_ACCESS_ID}" >> ~/.aws/credentials
-  - echo "aws_secret_access_key = ${SCALITY_SECRET_ACCESS_KEY}" >> ~/.aws/credentials
-  - aws --endpoint-url=${SCALITY_ENDPOINT} s3 sync s3://travis/core/${TRAVIS_BUILD_NUMBER} /tmp/release
+  - env | grep TRAVIS > /tmp/travis.env
+  - env | grep GITHUB >> /tmp/travis.env || true
+  - env | grep S3 >> /tmp/travis.env || true
+  - env | grep DISTRONAME >> /tmp/travis.env
+
+  - |
+    docker pull blizzlike/buildenv:${DISTRONAME}
+    docker run \
+      --name buildenv-${DISTRONAME} -d \
+      -v $(pwd):/home/blizzlike/development \
+      -v /tmp/release:/home/blizzlike/release \
+      --env-file /tmp/travis.env \
+      blizzlike/buildenv:${DISTRONAME} tail -f /dev/null
+
+stages:
+  - build
+  - publish
 
 jobs:
   include:
-    - stage: build core
-      if: env(TRAVIS_TAG) != true
+    # build binary packages
+    - stage: build
+      env:
+        - DISTRONAME=stretch
       script:
         - |
-          docker pull blizzlike/buildenv:stretch
-          docker run \
-            --name buildenv-stretch -d \
-            -v $(pwd):/home/core/development \
-            -v /tmp/release:/home/core/release \
-            blizzlike/buildenv:stretch tail -f /dev/null
-        - |
-          docker exec -t buildenv-stretch \
-            ../build.sh
+          docker exec -t buildenv-${DISTRONAME} \
+            lua5.1 ./travis/core.lua
 
-    - stage: build core
-      if: env(TRAVIS_TAG) != true
+    # publish build results
+    - stage: publish
+      env:
+        - DISTRONAME=stretch
       script:
         - |
-          docker pull blizzlike/buildenv:trusty
-          docker run \
-            --name buildenv-trusty -d \
-            -v $(pwd):/home/core/development \
-            -v /tmp/release:/home/core/release \
-            blizzlike/buildenv:trusty tail -f /dev/null
-        - |
-          docker exec -t buildenv-trusty \
-            ../build.sh
-
-    - stage: upload binaries
-      if: env(TRAVIS_TAG) != true
-      script:
-        - |
-          if [ -z "${TRAVIS_TAG}" ] && [ "${TRAVIS_BRANCH}" = "master" ] && [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
-            export GH_TAG_ID=$( \
-              curl -s -H "Authorization: token ${GH_OAUTH_TOKEN}" \
-                https://api.github.com/repos/blizzlike-org/core/releases/tags/latest | jq '.id')
-            curl -s -H "Authorization: token ${GH_OAUTH_TOKEN}" \
-              -X DELETE \
-              https://api.github.com/repos/blizzlike-org/core/releases/${GH_TAG_ID}
-            curl -s -H "Authorization: token ${GH_OAUTH_TOKEN}" \
-              -X DELETE \
-              https://api.github.com/repos/blizzlike-org/core/git/refs/tags/latest
-            git tag -f latest
-          fi
-      deploy:
-        provider: releases
-        api_key:
-          secure: "RiuzqWqIoeveaiMLE6e2ekmplrppV3XlXbY6Ik4wjvnkWoKRB5JJjkM07+rULvRjhm7rm723Xqh9poN6xWqQDXrE4AhS8PhxboRhmwtDdRWPIILp4QnY8Q8broajPvqZFL72G6t0RjGo1bisY152yc23ubRp37e4Fe8mphdQm2pUVhuKd1HHiMX3atKir/U/Tkupkmuz5hHkQCp+RPlVlm49eq7CqdF1b4kxPEb5etKbFHF6xxOLZ3MoUWBdbb9CeOAaStX4jf1tO2kZRFZ2Xn8zwcoa/QmtpWzjsoM3p1ArItXxXBD93PSmSF2vr4twZNVdUF9BsVkLXbR7Jq9mp88q/iKmpIgCBpt+etQAXbbhByrwNaZfWf6IgcfEPPtOM2eMcjOhk9TdHd40kovOz3QHf+AyIbqWxUjhs0vE6p9xHU/CLV3Qc1QPjrOUjXdR09trdN977qxGru2FqEiZgLXC5pPBIC5Vgm9M+zPhpNCjjK6mFDje9iGzfhNgrjkgMeLtGFidzhFGzoHV+nXCAdW79h9nHsQsCj3JTtcBTt50z3s9snMIsJaaM215FTG5R3xfsFxrDs6e2uDuizxd96N/9cEeg40E1sbRt/rofX75zCOD4/6FvZCpYggvRDO0FfosorC98wCyyNQLjSsTfsvfnxTqV+6tAHKdS0wdpo0="
-        file_glob: true
-        file: /tmp/release/*
-        skip_cleanup: true
-        overwrite: true
-        on:
-          branch:
-            - master
-      after_success:
-        - aws --endpoint-url=${SCALITY_ENDPOINT} s3 rm --recursive s3://travis/core/${TRAVIS_BUILD_NUMBER}
-        - |
-          curl -s \
-            -H "Authorization: token ${TRAVIS_TOKEN}" \
-            -H "Travis-API-Version: 3" \
-            -d '{"request":{"branch":"master"}}' \
-            https://api.travis-ci.org/repo/blizzlike-org%2Fdocker-images/requests
-      
-after_success:
-  - aws --endpoint-url=${SCALITY_ENDPOINT} s3 sync /tmp/release s3://travis/core/${TRAVIS_BUILD_NUMBER}
+          docker exec -t buildenv-${DISTRONAME} \
+            lua5.1 ./travis/core.lua
 
 notifications:
   webhooks:
     urls:
-      - http://188.166.87.141:9090/v1/travis
+      - https://w2d.blizzlike.org/v1/travis
     on_start: always
