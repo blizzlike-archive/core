@@ -7,8 +7,8 @@
 | sha_pass_hash            | varchar(40)  | the sha1 hash of USERNAME:PASSWORD             |
 | gmlevel                  | tinyint(3)   | security level of the account                  |
 | sessionkey               | longtext     |                                                |
-| v                        | longtext     |                                                |
-| s                        | longtext     |                                                |
+| v                        | longtext     | the hosts password verifier (SRPv6)            |
+| s                        | longtext     | a small salt (SRPv6)                           |
 | reg_mail                 | varchar(255) | ?                                              |
 | token_key                | varchar(100) | ?                                              |
 | email                    | text         | the email address of the account               |
